@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Resumen de Producción</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-7xl mx-auto bg-white shadow-lg p-6 rounded-lg">
+    <h1 class="text-2xl font-bold mb-4">Resumen de Producción</h1>
+    <div class="mb-4 flex justify-between items-center">
+      <span id="bienvenida" class="font-semibold"></span>
+      <button onclick="descargarCSV()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Descargar CSV</button>
+    </div>
+    <table class="w-full text-sm border" id="tabla">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="border p-1">Fecha</th>
+          <th class="border p-1">Nómina</th>
+          <th class="border p-1">Nombre</th>
+          <th class="border p-1">Área</th>
+          <th class="border p-1">Hora</th>
+          <th class="border p-1">Código</th>
+          <th class="border p-1">Estándar</th>
+          <th class="border p-1">Piezas</th>
+          <th class="border p-1">Interferencia</th>
+          <th class="border p-1">Minutos</th>
+          <th class="border p-1">Eficiencia (%)</th>
+        </tr>
+      </thead>
+      <tbody id="cuerpo-tabla"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const apiUrl = 'https://produccion-intranet-backend.onrender.com';
+
+    if (localStorage.getItem("rol") !== "admin") {
+      alert("Acceso restringido. Redirigiendo...");
+      window.location.href = "index.html";
+    }
+
+    document.getElementById("bienvenida").textContent = "Admin: " + localStorage.getItem("nombre");
+
+    async function cargarDatos() {
+      const res = await fetch(apiUrl + "/exportar-produccion");
+      const registros = await res.json();
+
+      const cuerpo = document.getElementById("cuerpo-tabla");
+      registros.forEach(reg => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="border p-1">${reg.fecha}</td>
+          <td class="border p-1">${reg.nomina}</td>
+          <td class="border p-1">${reg.nombre}</td>
+          <td class="border p-1">${reg.area}</td>
+          <td class="border p-1">${reg.hora}</td>
+          <td class="border p-1">${reg.codigo}</td>
+          <td class="border p-1">${reg.estandar}</td>
+          <td class="border p-1">${reg.piezas}</td>
+          <td class="border p-1">${reg.interferencias}</td>
+          <td class="border p-1">${reg.tiempo}</td>
+          <td class="border p-1">${reg.eficiencia}</td>
+        `;
+        cuerpo.appendChild(row);
+      });
+    }
+
+    function descargarCSV() {
+      window.location.href = apiUrl + "/exportar";
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
