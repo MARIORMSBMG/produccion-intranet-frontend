@@ -39,10 +39,10 @@
       const mensaje = document.getElementById('mensaje');
       mensaje.innerText = "";
 
-      const regexNomina = /^\d{4}$/;
+      const regexNomina = /^\d{6}$/;
 
       if (!regexNomina.test(nomina)) {
-        mensaje.innerText = "La nómina debe tener exactamente 4 dígitos numéricos";
+        mensaje.innerText = "La nómina debe tener exactamente 6 dígitos numéricos";
         return;
       }
 
