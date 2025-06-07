@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Boomerang RMS - Formulario Habilitado</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Boomerang RMS</a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="formulario.html">Formulario</a></li>
+          <li class="nav-item"><a class="nav-link" href="resumen.html">Resumen Diario</a></li>
+        </ul>
+        <button id="logout" class="btn btn-danger btn-sm">Cerrar sesión</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h2>Formulario Habilitado</h2>
+    <form id="formulario">
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <label for="nomina" class="form-label">Nómina</label>
+          <input type="text" id="nomina" class="form-control" required />
+        </div>
+        <div class="col-md-5">
+          <label for="nombre" class="form-label">Nombre</label>
+          <input type="text" id="nombre" class="form-control" readonly />
+        </div>
+        <div class="col-md-2">
+          <label for="area" class="form-label">Área</label>
+          <input type="text" id="area" value="Habilitado" class="form-control" readonly />
+        </div>
+        <div class="col-md-2">
+          <label for="fecha" class="form-label">Fecha</label>
+          <input type="date" id="fecha" class="form-control" required />
+        </div>
+      </div>
+
+      <table class="table table-bordered text-center align-middle">
+        <thead class="table-primary">
+          <tr>
+            <th>Hora</th>
+            <th>Proyecto</th>
+            <th>Código</th>
+            <th>Estándar</th>
+            <th>Piezas</th>
+            <th>Interferencia (min)</th>
+            <th>Motivo</th>
+            <th>Eficiencia (%)</th>
+          </tr>
+        </thead>
+        <tbody id="tablaHoras"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7" class="text-end fw-bold">Promedio de Eficiencia</td>
+            <td id="efProm">0%</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="text-end mb-4">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn btn-danger" id="cerrarSesion">Cerrar sesión</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const API_URL = "https://produccion-intranet-backend.onrender.com";
+    const horas = [
+      "07:00-08:00", "08:00-09:00", "09:00-10:00", "10:00-11:00",
+      "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00",
+      "15:00-16:00", "16:00-17:00", "17:00-18:00", "18:00-19:00"
+    ];
+    let estandares = {};
+
+    window.onload = () => {
+      document.getElementById("fecha").valueAsDate = new Date();
+      fetch(`${API_URL}/api/estandares?area=Habilitado`)
+        .then(res => res.json())
+        .then(data => {
+          data.forEach(item => {
+            estandares[item.codigo] = item.estandar;
+          });
+
+          const tbody = document.getElementById("tablaHoras");
+          horas.forEach((hora, i) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${hora}</td>
+              <td><input class="form-control proyecto" /></td>
+              <td><input class="form-control codigo" data-idx="${i}" /></td>
+              <td><input class="form-control estandar" readonly /></td>
+              <td><input type="number" class="form-control piezas" value="0" /></td>
+              <td><input type="number" class="form-control interferencia" value="0" /></td>
+              <td><input class="form-control motivo" /></td>
+              <td class="eficiencia">0%</td>
+            `;
+            tbody.appendChild(row);
+          });
+
+          // Eventos de cálculo por código o piezas
+          document.querySelectorAll(".codigo").forEach((input, i) => {
+            input.addEventListener("blur", () => actualizarEficiencia(i));
+          });
+
+          document.querySelectorAll(".piezas").forEach((input, i) => {
+            input.addEventListener("input", () => actualizarEficiencia(i));
+          });
+        });
+    };
+
+    function actualizarEficiencia(i) {
+      const row = document.querySelectorAll("#tablaHoras tr")[i];
+      const codigo = row.querySelector(".codigo").value.trim();
+      const estandar = estandares[codigo] || 0;
+      const piezas = parseInt(row.querySelector(".piezas").value || 0);
+      const eficiencia = estandar > 0 ? (piezas / estandar) * 100 : 0;
+
+      row.querySelector(".estandar").value = estandar;
+      row.querySelector(".eficiencia").innerText = `${eficiencia.toFixed(1)}%`;
+
+      actualizarPromedio();
+    }
+
+    function actualizarPromedio() {
+      const eficiencias = [...document.querySelectorAll(".eficiencia")].map(e => parseFloat(e.innerText) || 0);
+      const suma = eficiencias.reduce((acc, val) => acc + val, 0);
+      const promedio = suma / eficiencias.length;
+      document.getElementById("efProm").innerText = `${promedio.toFixed(1)}%`;
+    }
+
+    document.getElementById("nomina").addEventListener("blur", () => {
+      const nomina = document.getElementById("nomina").value;
+      const token = localStorage.getItem("token");
+      fetch(`${API_URL}/nombre/${nomina}`, {
+        headers: { Authorization: token }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.nombre) document.getElementById("nombre").value = data.nombre;
+      });
+    });
+
+    document.getElementById("formulario").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nomina = document.getElementById("nomina").value;
+      const nombre = document.getElementById("nombre").value;
+      const area = document.getElementById("area").value;
+      const fecha = document.getElementById("fecha").value;
+      const token = localStorage.getItem("token");
+
+      const rows = [...document.querySelectorAll("#tablaHoras tr")];
+      const data = rows.map((row, i) => {
+        const inputs = row.querySelectorAll("input");
+        return {
+          nomina,
+          nombre,
+          area,
+          fecha,
+          hora: horas[i],
+          proyecto: inputs[0].value,
+          codigo: inputs[1].value,
+          estandar: parseFloat(inputs[2].value),
+          cantidad: parseInt(inputs[3].value || 0),
+          tiempo_interferencia: parseInt(inputs[4].value || 0),
+          motivo_interferencia: inputs[5].value,
+          promedio_eficiencia: parseFloat(row.querySelector(".eficiencia").innerText) || 0,
+          total_piezas: parseInt(inputs[3].value || 0)
+        };
+      });
+
+      fetch(`${API_URL}/registro`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token
+        },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(resp => {
+        if (resp.success) alert("Registro guardado correctamente.");
+        else alert("Error al guardar.");
+      });
+    });
+
+    document.getElementById("cerrarSesion").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "index.html";
+    });
+
+    document.getElementById("logout").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "index.html";
+    });
+  </script>
+</body>
+</html>
