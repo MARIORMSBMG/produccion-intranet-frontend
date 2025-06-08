@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulario Habilitado - Boomerang RMS</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f9; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    h1 { font-size: 24px; color: #2c3e50; }
+    button { padding: 6px 12px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer; }
+    button.logout { background: #dc3545; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background-color: #007bff; color: white; font-weight: bold; }
+    tfoot td { font-weight: bold; background: #e9ecef; }
+    .actions { display: flex; justify-content: flex-end; gap: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Boomerang RMS - Formulario Habilitado</h1>
+    <div class="actions">
+      <button onclick="guardarFormulario()">Guardar</button>
+      <button class="logout" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <table id="tablaProduccion">
+    <thead>
+      <tr>
+        <th>Hora</th>
+        <th>Proyecto</th>
+        <th>Código</th>
+        <th>Estándar</th>
+        <th>Piezas</th>
+        <th>Interferencia (min)</th>
+        <th>Motivo</th>
+        <th>Eficiencia (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Filas generadas dinámicamente -->
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="7">Eficiencia Promedio</td>
+        <td id="eficienciaPromedio">0%</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <script>
+    const horarios = [
+      "07:00-08:00", "08:00-09:00", "09:00-10:00", "10:00-11:00",
+      "11:00-12:00", "12:00-13:00", "13:00-14:00", "14:00-15:00",
+      "15:00-16:00", "16:00-17:00", "17:00-18:00", "18:00-19:00"
+    ];
+    const area = "habilitado";
+    let estandares = [];
+
+    async function cargarEstandares() {
+      const res = await fetch(`/api/estandares?area=${area}`);
+      estandares = await res.json();
+    }
+
+    function crearFilasTabla() {
+      const tbody = document.querySelector("#tablaProduccion tbody");
+      horarios.forEach(hora => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${hora}</td>
+          <td><input type="text" class="proyecto" readonly /></td>
+          <td><input type="text" class="codigo" oninput="actualizarProyectoEstandar(this)" /></td>
+          <td><input type="number" class="estandar" readonly /></td>
+          <td><input type="number" class="piezas" oninput="calcularEficiencia(this)" /></td>
+          <td><input type="number" class="interferencia" value="0" /></td>
+          <td><input type="text" class="motivo" /></td>
+          <td><input type="text" class="eficiencia" readonly /></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function actualizarProyectoEstandar(input) {
+      const codigo = input.value.trim();
+      const row = input.closest("tr");
+      const estandarInput = row.querySelector(".estandar");
+      const proyectoInput = row.querySelector(".proyecto");
+      const encontrado = estandares.find(e => e.codigo === codigo);
+      if (encontrado) {
+        estandarInput.value = encontrado.piezasPorHora;
+        proyectoInput.value = encontrado.proyecto;
+      } else {
+        estandarInput.value = "";
+        proyectoInput.value = "";
+      }
+    }
+
+    function calcularEficiencia(input) {
+      const row = input.closest("tr");
+      const piezas = parseInt(row.querySelector(".piezas").value) || 0;
+      const estandar = parseInt(row.querySelector(".estandar").value) || 0;
+      const eficienciaInput = row.querySelector(".eficiencia");
+      const eficiencia = estandar > 0 ? Math.round((piezas / estandar) * 100) : 0;
+      eficienciaInput.value = eficiencia + "%";
+      calcularPromedio();
+    }
+
+    function calcularPromedio() {
+      const eficiencias = [...document.querySelectorAll(".eficiencia")]
+        .map(e => parseInt(e.value))
+        .filter(v => !isNaN(v));
+      const promedio = eficiencias.length ? (eficiencias.reduce((a,b) => a + b) / eficiencias.length) : 0;
+      document.getElementById("eficienciaPromedio").innerText = Math.round(promedio) + "%";
+    }
+
+    function guardarFormulario() {
+      const registros = [...document.querySelectorAll("#tablaProduccion tbody tr")].map(row => ({
+        hora: row.cells[0].innerText,
+        proyecto: row.querySelector(".proyecto").value,
+        codigo: row.querySelector(".codigo").value,
+        estandar: parseInt(row.querySelector(".estandar").value) || 0,
+        piezas: parseInt(row.querySelector(".piezas").value) || 0,
+        interferencia: parseInt(row.querySelector(".interferencia").value) || 0,
+        motivo: row.querySelector(".motivo").value,
+        eficiencia: row.querySelector(".eficiencia").value
+      }));
+
+      fetch("/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ area, registros })
+      })
+      .then(res => res.ok ? alert("Guardado exitosamente") : alert("Error al guardar"))
+      .catch(err => alert("Error de red"));
+    }
+
+    function cerrarSesion() {
+      window.location.href = "/index.html";
+    }
+
+    cargarEstandares().then(() => crearFilasTabla());
+  </script>
+</body>
+</html>
