@@ -61,7 +61,7 @@
         if (data.token) {
           localStorage.setItem('token', data.token);
           if (data.rol === 'operativo') {
-            window.location.href = 'formulario_habilitado_actualizado.html';
+            window.location.href = 'formulario.html';
           } else if (data.rol === 'supervisor' || data.rol === 'analista') {
             window.location.href = 'resumen_supervisor_actualizado.html';
           } else {
