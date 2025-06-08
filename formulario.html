@@ -1,0 +1,104 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Formulario Producción</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background: #007BFF; color: white; }
+    .header, .footer { margin-bottom: 20px; }
+    input, select { padding: 6px; width: 100%; }
+    button { padding: 8px 14px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h2>Formulario de Producción</h2>
+  <p>Nómina: <span id="nomina"></span> | Nombre: <span id="nombre"></span> | Área: Habilitado</p>
+  <label>Fecha: <input type="date" id="fecha"></label>
+  <label>Turno:
+    <select id="turno">
+      <option value="">Selecciona turno</option>
+      <option value="mixto">Mixto</option>
+      <option value="cuarto">4to</option>
+      <option value="tercero">3ro</option>
+      <option value="extra">Extra</option>
+    </select>
+  </label>
+</div>
+
+<table id="tabla">
+  <thead>
+    <tr>
+      <th>Hora</th><th>Código</th><th>Proyecto</th><th>Estándar</th>
+      <th>Piezas</th><th>Interferencia</th><th>Motivo</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div class="footer">
+  <button onclick="guardar()">Guardar</button>
+  <button onclick="cerrarSesion()">Cerrar sesión</button>
+</div>
+
+<script>
+const API_URL = 'https://produccion-intranet-backend.onrender.com';
+const horas = [
+  "07:00-08:00", "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00",
+  "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00",
+  "17:00-18:00", "18:00-19:00"
+];
+
+window.onload = async () => {
+  const nomina = localStorage.getItem("nomina");
+  const token = localStorage.getItem("token");
+
+  if (!nomina || !token) {
+    alert("Sesión expirada. Inicia sesión de nuevo.");
+    return location.href = "/index.html";
+  }
+
+  document.getElementById("nomina").textContent = nomina;
+  document.getElementById("fecha").valueAsDate = new Date();
+
+  try {
+    const res = await fetch(`${API_URL}/nombre/${nomina}`);
+    const data = await res.json();
+    document.getElementById("nombre").textContent = data.nombre || "Desconocido";
+  } catch {
+    document.getElementById("nombre").textContent = "Error al obtener nombre";
+  }
+
+  const tbody = document.querySelector("#tabla tbody");
+  horas.forEach(hora => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${hora}</td>
+      <td><input></td>
+      <td><input></td>
+      <td><input readonly></td>
+      <td><input type="number"></td>
+      <td><input type="number" value="0"></td>
+      <td><input></td>
+    `;
+    tbody.appendChild(row);
+  });
+};
+
+function guardar() {
+  alert("Función de guardado simulada.");
+}
+
+function cerrarSesion() {
+  localStorage.clear();
+  location.href = "/index.html";
+}
+</script>
+
+</body>
+</html>
