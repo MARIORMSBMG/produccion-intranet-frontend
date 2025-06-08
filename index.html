@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Boomerang RMS</title>
+  <style>
+    body { font-family: Arial; background: #f0f0f0; text-align: center; padding: 50px; }
+    .login-box {
+      background: white; padding: 30px; border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1); display: inline-block;
+    }
+    input { display: block; margin: 10px auto; padding: 8px; width: 80%; max-width: 300px; }
+    button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; cursor: pointer; }
+    a { display: block; margin-top: 15px; color: #007BFF; text-decoration: none; }
+    p { color: red; }
+  </style>
+</head>
+<body>
+
+<div class="login-box">
+  <h2>Iniciar Sesión</h2>
+  <input id="nomina" placeholder="Número de Nómina" />
+  <input id="password" type="password" placeholder="Contraseña" />
+  <button onclick="login()">Ingresar</button>
+  <a href="registro.html">¿Nuevo usuario? Regístrate aquí</a>
+  <p id="msg"></p>
+</div>
+
+<script>
+const API_URL = "https://produccion-intranet-backend.onrender.com";
+
+async function login() {
+  const nomina = document.getElementById("nomina").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (!nomina || !password) {
+    document.getElementById("msg").textContent = "Complete todos los campos.";
+    return;
+  }
+
+  const res = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nomina, password })
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    localStorage.setItem("nomina", nomina);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("rol", data.rol);
+
+    // Redirigir según rol
+    if (data.rol === "produccion" || data.rol === "operador") {
+      window.location.href = "/formulario.html";
+    } else if (data.rol === "supervisor") {
+      window.location.href = "/resumen.html";
+    } else if (data.rol === "analista") {
+      window.location.href = "/concentrado.html";
+    } else {
+      document.getElementById("msg").textContent = "Rol no autorizado.";
+    }
+  } else {
+    document.getElementById("msg").textContent = "Credenciales incorrectas o error del servidor.";
+  }
+}
+</script>
+
+</body>
+</html>
