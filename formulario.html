@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Formulario Doble Código</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background-color: #007BFF; color: white; }
+    input, select { padding: 4px; width: 100%; }
+    .resumen { margin-top: 15px; }
+  </style>
+</head>
+<body>
+
+<h2>Formulario Producción (2 Códigos por Hora)</h2>
+
+<label>Nómina: <input id="nomina" /></label><br>
+<label>Nombre: <input id="nombre" readonly /></label><br>
+<label>Área: <input id="area" value="Habilitado" readonly /></label><br>
+<label>Fecha: <input type="date" id="fecha" /></label><br>
+<label>Turno:
+  <select id="turno">
+    <option value="">Selecciona turno</option>
+    <option value="mixto">Mixto</option>
+    <option value="cuarto">4to</option>
+    <option value="tercero">3ro</option>
+    <option value="extra">Extra</option>
+  </select>
+</label><br>
+
+<div class="resumen">
+  <strong>Horas efectivas:</strong> <span id="horasEfectivas">0</span><br>
+  <strong>Eficiencia Global Ajustada:</strong> <span id="efFinal">0%</span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Hora</th>
+      <th>Código 1</th><th>Proyecto 1</th><th>Estándar 1</th><th>Piezas 1</th>
+      <th>Código 2</th><th>Proyecto 2</th><th>Estándar 2</th><th>Piezas 2</th>
+      <th>Interferencia</th><th>Motivo</th>
+    </tr>
+  </thead>
+  <tbody id="tabla"></tbody>
+</table>
+
+<button onclick="enviarDatos()">Guardar</button>
+
+<script>
+const API_URL = "https://produccion-intranet-backend.onrender.com";
+const TURNOS = {
+  mixto: { horas: 9.5, comida: 0.5 },
+  cuarto: { horas: 12, comida: 0.75 },
+  tercero: { horas: 10.5, comida: 0.5 },
+  extra: { horas: 8, comida: 0.5 }
+};
+const horas = ["07:00-08:00","08:00-09:00","09:00-10:00","10:00-11:00","11:00-12:00",
+"12:00-13:00","13:00-14:00","14:00-15:00","15:00-16:00","16:00-17:00","17:00-18:00","18:00-19:00"];
+let estandares = [];
+
+window.onload = async () => {
+  document.getElementById("fecha").valueAsDate = new Date();
+  const nomina = localStorage.getItem("nomina");
+  document.getElementById("nomina").value = nomina;
+
+  const r = await fetch(`${API_URL}/nombre/${nomina}`);
+  const data = await r.json();
+  document.getElementById("nombre").value = data.nombre;
+
+  const res = await fetch(`${API_URL}/api/estandares?area=Habilitado`);
+  estandares = await res.json();
+
+  const tbody = document.getElementById("tabla");
+  horas.forEach(hora => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${hora}</td>
+      <td><input class="codigo1"></td>
+      <td><input class="proyecto1" readonly></td>
+      <td><input class="estandar1" readonly></td>
+      <td><input class="piezas1" type="number"></td>
+      <td><input class="codigo2"></td>
+      <td><input class="proyecto2" readonly></td>
+      <td><input class="estandar2" readonly></td>
+      <td><input class="piezas2" type="number"></td>
+      <td><input class="interferencia" type="number" value="0"></td>
+      <td><input class="motivo"></td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.querySelectorAll(".codigo1, .codigo2").forEach(input => {
+    input.addEventListener("input", e => {
+      const tr = e.target.closest("tr");
+      const val = e.target.value.trim();
+      const match = estandares.find(e => e.codigo === val);
+      if (e.target.classList.contains("codigo1")) {
+        tr.querySelector(".estandar1").value = match ? match.estandar : "";
+        tr.querySelector(".proyecto1").value = match ? match.proyecto : "";
+      } else {
+        tr.querySelector(".estandar2").value = match ? match.estandar : "";
+        tr.querySelector(".proyecto2").value = match ? match.proyecto : "";
+      }
+    });
+  });
+};
+
+function calcularResumen() {
+  const turno = document.getElementById("turno").value;
+  const config = TURNOS[turno] || { horas: 0, comida: 0 };
+  let totalInterferencia = 0, totalPiezas = 0, totalEstandar = 0;
+
+  document.querySelectorAll("#tabla tr").forEach(tr => {
+    const p1 = parseFloat(tr.querySelector(".piezas1").value) || 0;
+    const p2 = parseFloat(tr.querySelector(".piezas2").value) || 0;
+    const e1 = parseFloat(tr.querySelector(".estandar1").value) || 0;
+    const e2 = parseFloat(tr.querySelector(".estandar2").value) || 0;
+    const int = parseFloat(tr.querySelector(".interferencia").value) || 0;
+
+    totalPiezas += p1 + p2;
+    totalEstandar += e1 + e2;
+    totalInterferencia += int;
+  });
+
+  const horasEfectivas = config.horas - config.comida - (totalInterferencia / 60);
+  const eficiencia = (totalEstandar > 0 && horasEfectivas > 0)
+    ? (totalPiezas / (totalEstandar * horasEfectivas)) * 100 : 0;
+
+  document.getElementById("horasEfectivas").textContent = horasEfectivas.toFixed(2);
+  document.getElementById("efFinal").textContent = eficiencia.toFixed(1) + "%";
+  return eficiencia.toFixed(1);
+}
+
+async function enviarDatos() {
+  const token = localStorage.getItem("token");
+  const eficiencia = calcularResumen();
+  const nomina = document.getElementById("nomina").value;
+  const nombre = document.getElementById("nombre").value;
+  const area = document.getElementById("area").value;
+  const fecha = document.getElementById("fecha").value;
+
+  const datos = [];
+  document.querySelectorAll("#tabla tr").forEach((tr, i) => {
+    const hora = horas[i];
+    for (let j = 1; j <= 2; j++) {
+      const codigo = tr.querySelector(".codigo" + j).value;
+      const proyecto = tr.querySelector(".proyecto" + j).value;
+      const estandar = tr.querySelector(".estandar" + j).value;
+      const piezas = tr.querySelector(".piezas" + j).value;
+      const interferencia = tr.querySelector(".interferencia").value;
+      const motivo = tr.querySelector(".motivo").value;
+      if (codigo || piezas) {
+        datos.push({
+          nomina, nombre, area, fecha, hora,
+          proyecto, codigo, estandar,
+          cantidad: piezas,
+          tiempo_interferencia: interferencia,
+          motivo_interferencia: motivo,
+          promedio_eficiencia: 0,
+          total_piezas: piezas,
+          eficiencia_ajustada: eficiencia
+        });
+      }
+    }
+  });
+
+  const res = await fetch(`${API_URL}/registro`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token
+    },
+    body: JSON.stringify(datos)
+  });
+
+  if (res.ok) alert("Guardado exitoso");
+  else alert("Error al guardar");
+}
+</script>
+</body>
+</html>
