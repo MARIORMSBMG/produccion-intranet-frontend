@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resumen Diario - Supervisor</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #007BFF; color: white; }
+    input, button { padding: 6px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Resumen Diario de Producción</h2>
+
+<label>Fecha:
+  <input type="date" id="fecha" />
+</label>
+<button onclick="consultar()">Consultar</button>
+
+<table id="tablaResumen">
+  <thead>
+    <tr>
+      <th>Nómina</th>
+      <th>Nombre</th>
+      <th>Total Piezas</th>
+      <th>Eficiencia Promedio</th>
+      <th>Eficiencia Ajustada</th>
+      <th>Total Interferencia</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const API_URL = 'https://produccion-intranet-backend.onrender.com';
+
+document.getElementById('fecha').valueAsDate = new Date();
+
+async function consultar() {
+  const fecha = document.getElementById('fecha').value;
+  const token = localStorage.getItem("token");
+  if (!token) return alert("Sesión expirada, vuelva a iniciar.");
+
+  try {
+    const res = await fetch(`${API_URL}/resumen?fecha=${fecha}`, {
+      headers: { Authorization: token }
+    });
+
+    if (!res.ok) throw new Error("No se pudo consultar");
+
+    const datos = await res.json();
+    const tbody = document.querySelector('#tablaResumen tbody');
+    tbody.innerHTML = '';
+
+    datos.forEach(d => {
+      const fila = `
+        <tr>
+          <td>${d.nomina}</td>
+          <td>${d.nombre}</td>
+          <td>${d.total_piezas}</td>
+          <td>${d.eficiencia_prom}%</td>
+          <td>${d.eficiencia_ajustada}%</td>
+          <td>${d.total_interferencia} min</td>
+        </tr>
+      `;
+      tbody.innerHTML += fila;
+    });
+  } catch (err) {
+    alert("Error al conectar con el servidor.");
+    console.error(err);
+  }
+}
+</script>
+
+</body>
+</html>
