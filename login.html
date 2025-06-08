@@ -123,7 +123,7 @@
         localStorage.setItem("nomina", data.nomina);
         localStorage.setItem("rol", data.rol);
 
-        if (data.rol === "produccion" || data.rol === "operador") {
+        if (data.rol === "operador" || data.rol === "operador") {
           window.location.href = "formulario.html";
         } else if (data.rol === "supervisor") {
           window.location.href = "resumen.html";
