@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Bienvenido - Boomerang RMS</title>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 50px; background-color: #f2f2f2; }
+    .container { background: white; display: inline-block; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px #ccc; }
+    h2 { color: #007BFF; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Bienvenido a Boomerang RMS</h2>
+  <p id="nombreUsuario">Cargando usuario...</p>
+  <div id="opciones"></div>
+  <button onclick="cerrarSesion()">Cerrar sesión</button>
+</div>
+
+<script>
+const API_URL = 'https://produccion-intranet-backend.onrender.com';
+
+async function iniciar() {
+  const token = localStorage.getItem("token");
+  const nomina = localStorage.getItem("nomina");
+  const rol = localStorage.getItem("rol");
+
+  if (!token || !rol || !nomina) {
+    location.href = '/index.html';
+    return;
+  }
+
+  // Obtener nombre del usuario
+  try {
+    const res = await fetch(`${API_URL}/nombre/${nomina}`);
+    const data = await res.json();
+    document.getElementById("nombreUsuario").textContent = "Usuario: " + (data.nombre || "No identificado");
+  } catch {
+    document.getElementById("nombreUsuario").textContent = "No se pudo obtener el nombre";
+  }
+
+  // Redirección automática por rol
+  if (rol === "produccion" || rol === "operador") {
+    window.location.href = "/formulario.html";
+  } else if (rol === "supervisor") {
+    document.getElementById("opciones").innerHTML = '<button onclick="location.href='/resumen.html'">Resumen Diario</button>';
+  } else if (rol === "analista") {
+    document.getElementById("opciones").innerHTML = '<button onclick="location.href='/concentrado.html'">Ver Concentrado</button>';
+  }
+}
+
+function cerrarSesion() {
+  localStorage.clear();
+  location.href = "/index.html";
+}
+
+iniciar();
+</script>
+
+</body>
+</html>
