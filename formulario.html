@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Formulario de Producción - Boomerang RMS</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: center; }
+    th { background-color: #e6e6e6; }
+    .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+    .header div { margin-right: 20px; }
+    button { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Boomerang RMS - Registro de Producción</h1>
+  <div class="header">
+    <div>
+      <p><strong>Nombre:</strong> <span id="nombreUsuario">Sin información</span></p>
+      <p><strong>Nómina:</strong> <span id="nominaUsuario">Sin información</span></p>
+    </div>
+    <div>
+      <label for="turno">Turno:</label>
+      <select id="turno">
+        <option value="Mixto">Mixto</option>
+        <option value="4to">4to</option>
+        <option value="3ro">3ro</option>
+        <option value="Extra">Extra</option>
+      </select>
+      <br>
+      <label for="maquina">Máquina:</label>
+      <input type="text" id="maquina" />
+    </div>
+  </div>
+
+  <table id="tabla-produccion">
+    <thead>
+      <tr>
+        <th>Hora</th>
+        <th>Código 1</th><th>Proyecto 1</th><th>Estándar 1</th><th>Piezas 1</th>
+        <th>Código 2</th><th>Proyecto 2</th><th>Estándar 2</th><th>Piezas 2</th>
+        <th>Interferencia (min)</th><th>Motivo</th><th>Tipo</th><th>Eficiencia</th>
+      </tr>
+    </thead>
+    <tbody id="cuerpo-tabla"></tbody>
+  </table>
+
+  <p><strong>Eficiencia Total:</strong> <span id="eficienciaTotal">0%</span></p>
+  <button onclick="guardar()">Guardar</button>
+  <button onclick="cerrarSesion()">Cerrar Sesión</button>
+
+<script>
+  const API_URL = "https://produccion-intranet-backend.onrender.com";
+  const cuerpoTabla = document.getElementById('cuerpo-tabla');
+  const horas = Array.from({ length: 13 }, (_, i) => (7 + i) + ":00");
+
+  const nomina = localStorage.getItem('nomina');
+  const nombre = localStorage.getItem('nombre');
+
+  document.getElementById('nominaUsuario').textContent = nomina || 'Sin información';
+  document.getElementById('nombreUsuario').textContent = nombre || 'Sin información';
+
+  function cerrarSesion() {
+    localStorage.clear();
+    window.location.href = "index.html";
+  }
+
+  async function autocompletarCodigo(input, proyectoEl, estandarEl) {
+    const codigo = input.value.trim();
+    if (!codigo) return;
+    try {
+      const res = await fetch(`${API_URL}/estandares?codigo=${codigo}`);
+      const data = await res.json();
+      if (data.proyecto && data.estandar) {
+        proyectoEl.value = data.proyecto;
+        estandarEl.value = data.estandar;
+      }
+    } catch (err) {
+      console.error('Error al autocompletar código:', err);
+    }
+  }
+
+  horas.forEach(hora => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${hora}</td>
+      <td><input class="codigo1"></td>
+      <td><input class="proyecto1" readonly></td>
+      <td><input class="estandar1" readonly></td>
+      <td><input type="number" class="piezas1"></td>
+
+      <td><input class="codigo2"></td>
+      <td><input class="proyecto2" readonly></td>
+      <td><input class="estandar2" readonly></td>
+      <td><input type="number" class="piezas2"></td>
+
+      <td><input type="number" class="interferencia"></td>
+      <td><input class="motivo"></td>
+      <td>
+        <select class="tipo">
+          <option value="evitable">Evitable</option>
+          <option value="inevitable">Inevitable</option>
+        </select>
+      </td>
+      <td><span class="eficiencia">0%</span></td>
+    `;
+    cuerpoTabla.appendChild(row);
+
+    const c1 = row.querySelector('.codigo1');
+    const p1 = row.querySelector('.proyecto1');
+    const e1 = row.querySelector('.estandar1');
+    const c2 = row.querySelector('.codigo2');
+    const p2 = row.querySelector('.proyecto2');
+    const e2 = row.querySelector('.estandar2');
+
+    c1.addEventListener('blur', () => autocompletarCodigo(c1, p1, e1));
+    c2.addEventListener('blur', () => autocompletarCodigo(c2, p2, e2));
+  });
+
+  async function guardar() {
+    const turno = document.getElementById('turno').value;
+    const maquina = document.getElementById('maquina').value;
+    const filas = Array.from(document.querySelectorAll('#cuerpo-tabla tr'));
+
+    const produccion = filas.map((tr, i) => {
+      return {
+        hora: horas[i],
+        codigo1: tr.querySelector('.codigo1').value,
+        proyecto1: tr.querySelector('.proyecto1').value,
+        estandar1: parseFloat(tr.querySelector('.estandar1').value) || 0,
+        piezas1: parseInt(tr.querySelector('.piezas1').value) || 0,
+        codigo2: tr.querySelector('.codigo2').value,
+        proyecto2: tr.querySelector('.proyecto2').value,
+        estandar2: parseFloat(tr.querySelector('.estandar2').value) || 0,
+        piezas2: parseInt(tr.querySelector('.piezas2').value) || 0,
+        interferencia: parseInt(tr.querySelector('.interferencia').value) || 0,
+        motivo: tr.querySelector('.motivo').value,
+        tipo: tr.querySelector('.tipo').value
+      };
+    });
+
+    try {
+      const res = await fetch(`${API_URL}/registro`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token')
+        },
+        body: JSON.stringify({ nomina, nombre, turno, maquina, produccion })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Registro guardado correctamente.');
+      } else {
+        alert('Error al guardar: ' + (data.error || 'Error inesperado'));
+      }
+    } catch (err) {
+      alert('Error de conexión con el servidor');
+    }
+  }
+</script>
+</body>
+</html>
